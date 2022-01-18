@@ -222,14 +222,3 @@ fdr(pvals = pval_q5_no_intercept, q = 0.1, plotit = TRUE)
 
 ```
 Here, the variables marked in red are the ones with true underlying significance at FDR = 0.1. The variables marked in grey are the ones with no underlying significance at FDR = 0.1.
-
-
-
-
-
-
-
-
-
-
-
