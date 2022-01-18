@@ -1,5 +1,5 @@
 ---
-title: "BAX452 Assignment 1"
+title: "False Discovery Rate"
 output: html_document
 ---
 
