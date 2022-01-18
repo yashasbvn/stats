@@ -7,7 +7,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r Assignment 1, message=FALSE, warning=FALSE, echo=FALSE}
+```{r False Discovery Rate, message=FALSE, warning=FALSE, echo=FALSE}
 library(olsrr)
 library(car)
 ```
