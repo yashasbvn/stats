@@ -1,0 +1,235 @@
+---
+title: "BAX452 Assignment 1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Assignment 1, message=FALSE, warning=FALSE, echo=FALSE}
+library(olsrr)
+library(car)
+```
+
+## Data Exploration
+
+```{r Data Exploration, message=FALSE, warning=FALSE}
+cars <-  read.csv("cars.csv")
+names(cars)
+
+summary(cars)
+```
+
+As we see, a few variables show up as characters - although they only have a few distinct possible levels. We will need to convert such variables to factor to be able to extract information from the model.
+
+```{r, message=FALSE, warning=FALSE}
+cars$fuel_type <- factor(cars$fuel_type, levels = c("gas", "diesel"))
+cars$aspiration <- factor(cars$aspiration, levels = c("std", "turbo"))
+cars$num_of_doors <- factor(cars$num_of_doors, levels = c("two", "four"))
+
+#no specific ordering
+cars$body_style <- factor(cars$body_style)
+cars$drive_wheels <- factor(cars$drive_wheels)
+cars$make <- factor(cars$make)
+cars$engine_location <- factor(cars$engine_location)
+cars$engine_type <- factor(cars$engine_type)
+cars$fuel_system <- factor(cars$fuel_system)
+
+summary(cars)
+```
+
+Now, we will look to plot the price against a few variables to check for patterns, if any.
+
+```{r, message=FALSE, warning=FALSE}
+
+#Plotting histogram of the price
+hist(cars$price)
+
+#As we see from the histogram - the prices are right skewed. To even the scale out, we might need to use a log transformation on price in the later stages of model building.
+
+#Plotting price against mpg
+plot(price ~ city_mpg, data = cars)
+plot(price ~ highway_mpg, data = cars)
+
+#There does seem to be some negative relationship between the price and the mpg - as usually the cars with less mpg are priced lesser due to tradeoffs in other aspects
+
+#Checking on a log-scale
+plot(price ~ city_mpg, data = cars, log="y")
+plot(price ~ highway_mpg, data = cars, log="y")
+
+#As we can see, the distribution looks much more linear when we plot on a log-scale.
+
+#Plotting price distribution against make
+plot(price ~ make, data = cars, las = 2)
+
+#We clearly see that some makes are higher priced than the others - indicating that this is an important variable too!
+
+#Plotting price against horsepower
+plot(price ~ horsepower, data = cars)
+plot(price ~ horsepower, data = cars, log="y")
+#There is a positive relationship between the horsepower and the price - as expected.
+
+#Plotting how number of doors affects the price of the car
+plot(price ~ num_of_doors, data = cars)
+#The plot shows that the distribution of the price across two and four-door-ed cars is similar - with two door-ed cars having a slightly lower median price
+
+#Checking relationship between fuel type and price
+plot(price~fuel_type, data = cars)
+#Diesel cars are priced slightly higher compared to gas.
+
+#Checking relationship between fuel system and price
+plot(price~fuel_system, data = cars)
+#There are notable differences in the price across different fuel systems as well.
+
+#Checking relationship of price with aspiration
+plot(price~aspiration, data = cars)
+#Although there are fewer cars with turbo aspiration, the median price is higher
+
+#Checking relationship of price with body style
+plot(price~body_style, data = cars)
+#Hatchbacks have the lowest prices amongst various body styles
+
+#Checking the drive-wheel relationship with price
+plot(price~drive_wheels, data = cars)
+#rwd cars are higher priced.
+```
+We will now go through the regression with the initial set of variables. If required, more data will be explored in the following steps - in order to get a good fit.
+
+## Model using the initial set of variables
+
+```{r, message=FALSE, warning=FALSE}
+initial_cars <- cars[ , c("price", "horsepower", "fuel_type", "aspiration", "num_of_doors",
+                "body_style", "drive_wheels", "make", "city_mpg", "length")]
+
+#As we see, as the range of price is high, it is more desirable to go with ln(price). We will use this for the initial model as well. Also, using ln gives a % change in price which is more intuitive in this case as the range of values for price is large.
+
+initial_lm <- lm(log(price)~., data = initial_cars)
+summary(initial_lm)
+
+initial_preds <- predict(initial_lm)
+initial_resids <- residuals(initial_lm)
+
+plot(initial_resids~initial_preds, main = "Residuals vs Fit plot for initial model")
+hist(initial_resids)
+
+#anova(initial_lm)
+
+```
+
+As we see from the summary of the model, the initial model has a high R-squared value of 94.95% - indicating that these variables are able to explain 94.95% variation in the log value of price.
+
+Also, many of the variables are highly significant at a 5% significance level. Although the others are not significant, we cannot disregard them as they are either indicator variables or are contributing to the fit in indirect ways.
+
+The residual vs fit plot also indicates that there is constant variance in the residuals and the histogram of residuals indicates that the residuals are normally distributed.
+
+## Improving the model
+
+In order to improve the model, we will first use stepwise regression to check which combination of variables give the best results. However, before finalizing this model, we will need to check if a few important variables are considered (as these are vital in deciding a car's price in reality.)
+
+```{r, message=FALSE, warning=FALSE}
+
+#Creating a model with all variables in the cars data set.
+full_lm <- lm(log(price)~., data = cars)
+summary(full_lm)
+
+#Running the step wise regression with a significance level 0.05 for both entering and leaving p-value.
+ols_step_both_p(model = full_lm, 
+                pent = 0.05, 
+                prem = 0.05, 
+                details = FALSE)
+
+#Creating the model output
+step_model <- lm(log(price)~curb_weight+make+horsepower+body_style+height+wheel_base+aspiration+engine_location, data = cars)
+
+summary(step_model)
+```
+
+Although the step-wise regression output gives us these 8 variables, we see that the city_mpg variable is not included. From our data exploration part, we noticed how city_mpg had a very good linear relationship with the price. Also, customers take into consideration this variable prior to purchasing a car. Hence, we will include even that in our model.
+
+```{r, message=FALSE, warning=FALSE}
+
+model_part3 <- lm(log(price)~curb_weight+make+horsepower+body_style+height+wheel_base+aspiration+engine_location+city_mpg, data = cars)
+
+summary(model_part3)
+
+#plotting the residuals vs fit plot
+resids_part3 <- residuals(model_part3)
+preds_part3 <- predict(model_part3)
+
+plot(resids_part3~preds_part3)
+
+#Histogram of residuals
+hist(resids_part3)
+```
+
+As we see, the updated model has a higher R-squared and adjusted R-squared values than the initial model that we looked into. The residual vs fit plot also indicates constant variance in the model.
+
+This model explains 96.22% variation in the log of price. The intercept determines the price of a car when everything is 0 (which is practically not possible hence we cannot interpret it). The remaining coefficients indicate that keeping the other variables constant, the price of the car change by the value of the coefficient (if they are statistically significant at 5% level).
+
+## False discoveries
+
+In the model above, we do not know the exact variables that influence the price. False discoveries of variables that influence the price can impact the car maker's goals and objectives while building a car. This can also lead to making wrong conclusions about the attribution to a particular feature in the car - for both marketing and pricing related activities. 
+
+Also, huge investments are made into these features. If we provide false discoveries, it can lead to the business never knowing what the true factors that they need to focus on. 
+
+## Controlling the FDR using the BH Procedure
+
+```{r, message=FALSE, warning=FALSE}
+## extract p-value cutoff for E[fdf] < q
+fdr <- function(pvals, q, plotit=FALSE){
+  pvals <- pvals[!is.na(pvals)]
+  N <- length(pvals)
+  
+  k <- rank(pvals, ties.method="min")
+  alpha <- max(pvals[ pvals <= (q*k/N) ])
+  
+  if(plotit){
+    sig <- factor(pvals <= alpha)
+    o <- order(pvals)
+    plot(pvals[o], log="xy", col=c("grey60","red")[sig[o]], pch=20, 
+      ylab="p-values", xlab="tests ordered by p-value", main = paste('FDR =',q))
+    lines(1:N, q*(1:N) / N)
+  }
+  
+  return(alpha)
+}
+
+#Extracting all the p-values fromt the model
+p_values <- as.data.frame(summary(model_part3)$coefficients[,4])
+colnames(p_values) <- c("p_value")
+pval_q5 <- as.vector(p_values$p_value)
+
+#Removing the p-value of the intercept
+pval_q5_no_intercept <- pval_q5[-1]
+
+new_alpha <- fdr(pvals = pval_q5_no_intercept, q = 0.1)
+paste("The suggested value of alpha is", round(new_alpha,4), "corresponding to an FDR of 10%")
+#fdr(pvals = pval_q5, q = 0.1)
+```
+
+The outputs of the fdr function above gives the suggested value of significance level in order to control for an FDR of 0.1. This significance level, therefore is 0.038 ~ 3.8%.
+
+To find the count of true discoveries, we need to find all the variables in our model with a p-value less than 0.038. These will be termed as significant and true discoveries.
+
+```{r, message=FALSE, warning=FALSE}
+true_discovery_count <- sum(pval_q5_no_intercept<new_alpha)
+
+paste("For an FDR of 10%, at a significance level of",round(new_alpha*100,2),"%, we get", true_discovery_count,"true discoveries in the model")
+
+#Plotting the cutoff line
+fdr(pvals = pval_q5_no_intercept, q = 0.1, plotit = TRUE)
+
+```
+Here, the variables marked in red are the ones with true underlying significance at FDR = 0.1. The variables marked in grey are the ones with no underlying significance at FDR = 0.1.
+
+
+
+
+
+
+
+
+
+
+
